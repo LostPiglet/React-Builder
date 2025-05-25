@@ -168,7 +168,7 @@ const InputBox = forwardRef(function InputBox({ onSubmit, disabled = false }, re
               <li>• 详细描述组件功能和样式需求</li>
               <li>• 可以指定颜色、布局、交互效果</li>
               <li>• 支持响应式设计和现代 UI 风格</li>
-              <li>• 示例："创建一个深色主题的音乐播放器卡片"</li>
+              <li>• 示例：{'创建一个深色主题的音乐播放器卡片'}</li>
             </ul>
           </div>
         </div>

@@ -50,12 +50,21 @@ export async function fetchStream({
       // 清理 apiKey，移除前后空格
       const cleanApiKey = apiKey.trim();
       
+      // 构建请求头
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${cleanApiKey}`,
+      };
+
+      // 为OpenRouter添加必要的请求头
+      if (cleanBaseUrl.includes('openrouter.ai')) {
+        headers["HTTP-Referer"] = window.location.origin;
+        headers["X-Title"] = "React Builder";
+      }
+
       const res = await fetch(`${cleanBaseUrl}/chat/completions`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${cleanApiKey}`,
-        },
+        headers,
         body: JSON.stringify({
           model: modelName || "gpt-4",
           messages: [{ role: "user", content: prompt }],
@@ -67,7 +76,31 @@ export async function fetchStream({
 
       // 检查响应状态
       if (!res.ok) {
-        const errorMessage = getUserFriendlyErrorMessage(res.status);
+        // 尝试获取错误详情
+        let errorDetails = '';
+        try {
+          const errorText = await res.text();
+          const errorJson = JSON.parse(errorText);
+          errorDetails = errorJson.error?.message || errorText;
+        } catch (e) {
+          // 忽略解析错误
+        }
+        
+        console.error(`API请求失败: ${res.status} ${res.statusText}`, errorDetails);
+        
+        let errorMessage = getUserFriendlyErrorMessage(res.status);
+        
+        // 为401错误添加更具体的提示
+        if (res.status === 401) {
+          if (cleanBaseUrl.includes('openrouter.ai')) {
+            errorMessage = "❌ OpenRouter API 密钥无效。请确保：\n" +
+                          "• API Key 以 'sk-or-' 开头\n" +
+                          "• 在 OpenRouter 官网验证密钥是否有效\n" +
+                          "• 检查是否有足够的余额或配额";
+          } else {
+            errorMessage = "❌ API 密钥无效，请检查您的 API Key 是否正确";
+          }
+        }
         
         // 对于 429 错误，如果还有重试次数，则重试
         if (res.status === 429 && retryCount < RETRY_CONFIG.maxRetries) {

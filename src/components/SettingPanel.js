@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Settings2,
   ChevronDown,
@@ -21,9 +21,11 @@ export default function SettingPanel({ onConfigChange }) {
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState(false);
   const [errors, setErrors] = useState({});
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
 
   // 预设的模型配置
-  const modelPresets = {
+  const modelPresets = useMemo(() => ({
     openrouter: {
       name: "OpenRouter",
       baseUrl: "https://openrouter.ai/api/v1",
@@ -53,7 +55,7 @@ export default function SettingPanel({ onConfigChange }) {
       baseUrl: "",
       models: []
     }
-  };
+  }), []);
 
   /* 初始化读取本地存储 */
   useEffect(() => {
@@ -79,7 +81,7 @@ export default function SettingPanel({ onConfigChange }) {
         modelName: m || modelPresets[p].models[0]
       });
     }
-  }, [onConfigChange]);
+  }, [onConfigChange, modelPresets]);
 
   // 当提供商变化时自动更新URL和模型
   useEffect(() => {
@@ -89,7 +91,7 @@ export default function SettingPanel({ onConfigChange }) {
         setModelName(modelPresets[provider].models[0]);
       }
     }
-  }, [provider]);
+  }, [provider, modelPresets]);
 
   const validateUrl = (url) => {
     try {
@@ -113,6 +115,8 @@ export default function SettingPanel({ onConfigChange }) {
       newErrors.apiKey = "请输入 API Key";
     } else if (apiKey.length < 10) {
       newErrors.apiKey = "API Key 长度至少需要10个字符";
+    } else if (provider === "openrouter" && !apiKey.startsWith("sk-or-")) {
+      newErrors.apiKey = "OpenRouter API Key 应该以 'sk-or-' 开头";
     }
 
     if (!modelName.trim()) {
@@ -121,6 +125,54 @@ export default function SettingPanel({ onConfigChange }) {
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const testConnection = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    setTesting(true);
+    setTestResult(null);
+
+    try {
+      const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
+      const cleanApiKey = apiKey.trim();
+      
+      // 构建请求头
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${cleanApiKey}`,
+      };
+
+      // 为OpenRouter添加必要的请求头
+      if (cleanBaseUrl.includes('openrouter.ai')) {
+        headers["HTTP-Referer"] = window.location.origin;
+        headers["X-Title"] = "React Builder";
+      }
+
+      const response = await fetch(`${cleanBaseUrl}/models`, {
+        method: "GET",
+        headers,
+      });
+
+      if (response.ok) {
+        setTestResult({ success: true, message: "✅ API 连接测试成功！" });
+      } else {
+        const errorText = await response.text();
+        setTestResult({ 
+          success: false, 
+          message: `❌ 连接失败: ${response.status} ${response.statusText}` 
+        });
+      }
+    } catch (error) {
+      setTestResult({ 
+        success: false, 
+        message: `❌ 连接失败: ${error.message}` 
+      });
+    } finally {
+      setTesting(false);
+    }
   };
 
   const save = () => {
@@ -135,6 +187,7 @@ export default function SettingPanel({ onConfigChange }) {
     onConfigChange({ baseUrl, apiKey, modelName, provider });
     setSaved(true);
     setErrors({});
+    setTestResult(null);
     setTimeout(() => setSaved(false), 3000);
   };
 
@@ -435,31 +488,71 @@ export default function SettingPanel({ onConfigChange }) {
             </div>
           </div>
 
-          {/* 保存按钮 */}
-          <button
-            onClick={save}
-            disabled={!baseUrl || !apiKey || !modelName}
-            className={`w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl font-medium transition-all duration-300 ${
-              saved
-                ? "bg-green-600 text-white shadow-lg shadow-green-600/25"
-                : baseUrl && apiKey && modelName
-                ? "btn-primary hover:scale-105"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-            }`}
-            aria-describedby="save-button-status"
-          >
-            {saved ? (
-              <>
-                <Check size={18} />
-                配置已保存
-              </>
-            ) : (
-              <>
-                <Save size={18} />
-                保存配置
-              </>
+          {/* 测试和保存按钮 */}
+          <div className="space-y-3">
+            {/* 测试连接按钮 */}
+            <button
+              onClick={testConnection}
+              disabled={!baseUrl || !apiKey || !modelName || testing}
+              className={`w-full flex items-center justify-center gap-3 px-6 py-3 rounded-xl font-medium transition-all duration-300 ${
+                baseUrl && apiKey && modelName && !testing
+                  ? "bg-blue-600 text-white hover:bg-blue-700 hover:scale-105 shadow-lg shadow-blue-600/25"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              }`}
+            >
+              {testing ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  测试连接中...
+                </>
+              ) : (
+                <>
+                  <Globe size={18} />
+                  测试 API 连接
+                </>
+              )}
+            </button>
+
+            {/* 测试结果显示 */}
+            {testResult && (
+              <div className={`flex items-center gap-3 text-sm px-4 py-3 rounded-xl border ${
+                testResult.success 
+                  ? "text-green-600 bg-green-50/80 border-green-200/50" 
+                  : "text-red-600 bg-red-50/80 border-red-200/50"
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${
+                  testResult.success ? "bg-green-500" : "bg-red-500"
+                }`} />
+                <span>{testResult.message}</span>
+              </div>
             )}
-          </button>
+
+            {/* 保存按钮 */}
+            <button
+              onClick={save}
+              disabled={!baseUrl || !apiKey || !modelName}
+              className={`w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl font-medium transition-all duration-300 ${
+                saved
+                  ? "bg-green-600 text-white shadow-lg shadow-green-600/25"
+                  : baseUrl && apiKey && modelName
+                  ? "btn-primary hover:scale-105"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              }`}
+              aria-describedby="save-button-status"
+            >
+              {saved ? (
+                <>
+                  <Check size={18} />
+                  配置已保存
+                </>
+              ) : (
+                <>
+                  <Save size={18} />
+                  保存配置
+                </>
+              )}
+            </button>
+          </div>
 
           {/* 状态提示 */}
           {isConfigured && !saved && (
@@ -476,7 +569,9 @@ export default function SettingPanel({ onConfigChange }) {
                 <p className="font-medium text-gray-700 mb-2">配置说明：</p>
                 <ul className="space-y-1.5 text-gray-600">
                   <li>• 支持 OpenAI、OpenRouter 等兼容 OpenAI API 的服务</li>
+                  <li>• <strong>OpenRouter API Key</strong> 以 'sk-or-' 开头，请从 openrouter.ai 获取</li>
                   <li>• API Key 仅存储在您的浏览器本地，不会上传到服务器</li>
+                  <li>• 建议先点击"测试 API 连接"验证配置是否正确</li>
                   <li>• 配置保存后即可开始使用 AI 生成功能</li>
                   <li>• 自定义选项可以使用任何兼容的 API 端点</li>
                 </ul>
