@@ -142,27 +142,93 @@ export default function SettingPanel({ onConfigChange }) {
       // 构建请求头
       const headers = {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${cleanApiKey}`,
       };
+      
+      // 根据不同API提供商设置不同的认证头
+      if (cleanBaseUrl.includes('openrouter.ai')) {
+        // OpenRouter认证头格式
+        headers["Authorization"] = `Bearer ${cleanApiKey}`;
+      } else {
+        // 标准Bearer认证头
+        headers["Authorization"] = `Bearer ${cleanApiKey}`;
+      }
 
       // 为OpenRouter添加必要的请求头
       if (cleanBaseUrl.includes('openrouter.ai')) {
-        headers["HTTP-Referer"] = window.location.href;
+        // 正确的头部名称是"HTTP-Referer"
+        headers["HTTP-Referer"] = window.location.origin;
         headers["X-Title"] = "React Builder";
+        // 添加额外的OpenRouter推荐头部
+        headers["X-Original-Domain"] = window.location.origin;
       }
 
-      const response = await fetch(`${cleanBaseUrl}/models`, {
+      // OpenRouter使用不同的端点来验证API密钥
+      let endpoint = `${cleanBaseUrl}/models`;
+      
+      // 为OpenRouter使用特殊的测试端点
+      if (cleanBaseUrl.includes('openrouter.ai')) {
+        endpoint = `${cleanBaseUrl}/auth/key`;
+        console.log("测试OpenRouter API密钥:", endpoint);
+      }
+      
+      console.log("测试连接:", endpoint);
+      console.log("请求头:", JSON.stringify(headers));
+      
+      const response = await fetch(endpoint, {
         method: "GET",
         headers,
       });
 
       if (response.ok) {
-        setTestResult({ success: true, message: "✅ API 连接测试成功！" });
+        let successMessage = "✅ API 连接测试成功！";
+        
+        try {
+          // 尝试获取更多信息
+          const data = await response.json();
+          
+          // 如果是OpenRouter，显示额外信息
+          if (cleanBaseUrl.includes('openrouter.ai') && data.key) {
+            successMessage = `✅ OpenRouter API 密钥验证成功！${data.key.credits ? `\n• 剩余额度: $${data.key.credits.toFixed(4)}` : ''}`;
+          }
+        } catch (e) {
+          // 忽略解析错误
+        }
+        
+        setTestResult({ success: true, message: successMessage });
       } else {
-        const errorText = await response.text();
+        let errorMessage = `❌ 连接失败: ${response.status} ${response.statusText}`;
+        let errorDetails = '';
+        
+        try {
+          const errorText = await response.text();
+          try {
+            const errorJson = JSON.parse(errorText);
+            errorDetails = errorJson.error?.message || errorText;
+            
+            if (response.status === 401 && cleanBaseUrl.includes('openrouter.ai')) {
+              if (errorDetails.includes("No auth credentials found")) {
+                errorMessage = "❌ OpenRouter 无法识别您的认证凭据，请检查API Key格式";
+              } else if (errorDetails.includes("invalid")) {
+                errorMessage = "❌ OpenRouter API 密钥无效，请重新获取";
+              }
+            }
+          } catch (e) {
+            // 如果不是JSON，使用文本
+            errorDetails = errorText;
+          }
+        } catch (e) {
+          // 忽略解析错误
+        }
+        
+        console.error("测试连接失败:", {
+          status: response.status,
+          statusText: response.statusText,
+          details: errorDetails
+        });
+        
         setTestResult({ 
           success: false, 
-          message: `❌ 连接失败: ${response.status} ${response.statusText}` 
+          message: errorMessage
         });
       }
     } catch (error) {
@@ -570,6 +636,7 @@ export default function SettingPanel({ onConfigChange }) {
                 <ul className="space-y-1.5 text-gray-600">
                   <li>• 支持 OpenAI、OpenRouter 等兼容 OpenAI API 的服务</li>
                   <li>• <strong>OpenRouter API Key</strong> 以 'sk-or-' 开头，请从 openrouter.ai 获取</li>
+                  <li>• <strong>注意</strong>：使用OpenRouter时，需要在其官网账户设置中添加您当前网站的域名</li>
                   <li>• API Key 仅存储在您的浏览器本地，不会上传到服务器</li>
                   <li>• 建议先点击"测试 API 连接"验证配置是否正确</li>
                   <li>• 配置保存后即可开始使用 AI 生成功能</li>

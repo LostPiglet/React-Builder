@@ -50,67 +50,82 @@ export async function fetchStream({
       // 清理 apiKey，移除前后空格
       const cleanApiKey = apiKey.trim();
       
-      // 验证API密钥格式
-      if (!cleanApiKey) {
-        throw new Error("❌ API Key 不能为空");
-      }
-      
-      if (cleanBaseUrl.includes('openrouter.ai') && !cleanApiKey.startsWith('sk-or-')) {
-        throw new Error("❌ OpenRouter API Key 必须以 'sk-or-' 开头");
-      }
-      
-      // 调试信息
-      console.log('🔍 API请求调试信息:');
-      console.log('- Base URL:', cleanBaseUrl);
-      console.log('- API Key开头:', cleanApiKey.substring(0, 15) + '***');
-      console.log('- API Key长度:', cleanApiKey.length);
-      console.log('- 模型名称:', modelName);
-      
       // 构建请求头
       const headers = {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${cleanApiKey}`,
       };
+      
+      // 根据不同API提供商设置不同的认证头
+      if (cleanBaseUrl.includes('openrouter.ai')) {
+        // OpenRouter认证头格式
+        headers["Authorization"] = `Bearer ${cleanApiKey}`;
+      } else {
+        // 标准Bearer认证头
+        headers["Authorization"] = `Bearer ${cleanApiKey}`;
+      }
 
       // 为OpenRouter添加必要的请求头
       if (cleanBaseUrl.includes('openrouter.ai')) {
-        // 根据OpenRouter官方文档，这些头部是可选的但推荐的
-        headers["HTTP-Referer"] = window.location.href;
+        // 正确的头部名称是"HTTP-Referer"
+        headers["HTTP-Referer"] = window.location.origin;
         headers["X-Title"] = "React Builder";
-        
-        console.log('🔍 OpenRouter请求头:', {
-          'Authorization': 'Bearer ' + cleanApiKey.substring(0, 15) + '***',
-          'HTTP-Referer': headers["HTTP-Referer"],
-          'X-Title': headers["X-Title"],
-          'Content-Type': headers["Content-Type"]
-        });
+        // 添加额外的OpenRouter推荐头部
+        headers["X-Original-Domain"] = window.location.origin;
       }
 
+      // 准备请求体
+      const requestBody = {
+        model: modelName || "gpt-4",
+        messages: [{ role: "user", content: prompt }],
+        stream: true,
+        temperature: 0.7,
+        max_tokens: 2000,
+      };
+      
+      // 如果是OpenRouter，添加额外的参数
+      if (cleanBaseUrl.includes('openrouter.ai')) {
+        requestBody.route = "fallback"; // 使用fallback路由确保高可用性
+        requestBody.transforms = ["middle-out"]; // 更好的流式处理支持
+      }
+      
+      console.log("发送请求到:", `${cleanBaseUrl}/chat/completions`);
+      console.log("请求头:", JSON.stringify(headers));
+      console.log("API Key (前5位):", cleanApiKey.substring(0, 5) + "...");
+      
       const res = await fetch(`${cleanBaseUrl}/chat/completions`, {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          model: modelName || "gpt-4",
-          messages: [{ role: "user", content: prompt }],
-          stream: true,
-          temperature: 0.7,
-          max_tokens: 2000,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       // 检查响应状态
       if (!res.ok) {
         // 尝试获取错误详情
         let errorDetails = '';
+        let errorJson = null;
         try {
           const errorText = await res.text();
-          const errorJson = JSON.parse(errorText);
-          errorDetails = errorJson.error?.message || errorText;
+          try {
+            errorJson = JSON.parse(errorText);
+            errorDetails = errorJson.error?.message || errorText;
+          } catch (parseError) {
+            // 如果不是JSON，使用原始文本
+            errorDetails = errorText;
+          }
         } catch (e) {
-          // 忽略解析错误
+          errorDetails = `无法获取错误详情: ${e.message}`;
         }
         
         console.error(`API请求失败: ${res.status} ${res.statusText}`, errorDetails);
+        
+        // 记录更多调试信息
+        console.log("完整请求信息:", {
+          url: `${cleanBaseUrl}/chat/completions`,
+          headers: headers,
+          status: res.status,
+          statusText: res.statusText,
+          errorDetails: errorDetails
+        });
         
         let errorMessage = getUserFriendlyErrorMessage(res.status);
         
@@ -120,7 +135,18 @@ export async function fetchStream({
             errorMessage = "❌ OpenRouter API 密钥无效。请确保：\n" +
                           "• API Key 以 'sk-or-' 开头\n" +
                           "• 在 OpenRouter 官网验证密钥是否有效\n" +
-                          "• 检查是否有足够的余额或配额";
+                          "• 检查是否有足够的余额或配额\n" +
+                          "• 确认您已经在 OpenRouter 账户设置中添加了本站域名";
+                          
+            // 如果错误详情中包含特定信息，提供更精确的错误提示
+            if (errorDetails.includes("No auth credentials found")) {
+              errorMessage = "❌ OpenRouter 无法识别您的认证凭据。请确保：\n" +
+                            "• API Key 格式正确，以 'sk-or-' 开头\n" +
+                            "• 复制粘贴时没有多余的空格\n" +
+                            "• 在OpenRouter网站验证API Key是否有效";
+            } else if (errorDetails.includes("invalid")) {
+              errorMessage = "❌ OpenRouter API 密钥无效。请从OpenRouter网站重新获取有效的API Key";
+            }
           } else {
             errorMessage = "❌ API 密钥无效，请检查您的 API Key 是否正确";
           }
