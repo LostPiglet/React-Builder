@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import {
   Settings2,
   ChevronDown,
@@ -23,7 +23,7 @@ export default function SettingPanel({ onConfigChange }) {
   const [errors, setErrors] = useState({});
 
   // 预设的模型配置
-  const modelPresets = useMemo(() => ({
+  const modelPresets = {
     openrouter: {
       name: "OpenRouter",
       baseUrl: "https://openrouter.ai/api/v1",
@@ -53,7 +53,7 @@ export default function SettingPanel({ onConfigChange }) {
       baseUrl: "",
       models: []
     }
-  }), []);
+  };
 
   /* 初始化读取本地存储 */
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function SettingPanel({ onConfigChange }) {
         modelName: m || modelPresets[p].models[0]
       });
     }
-  }, [onConfigChange, modelPresets]);
+  }, [onConfigChange]);
 
   // 当提供商变化时自动更新URL和模型
   useEffect(() => {
@@ -89,7 +89,7 @@ export default function SettingPanel({ onConfigChange }) {
         setModelName(modelPresets[provider].models[0]);
       }
     }
-  }, [provider, modelPresets]);
+  }, [provider]);
 
   const validateUrl = (url) => {
     try {

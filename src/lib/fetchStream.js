@@ -45,13 +45,16 @@ export async function fetchStream({
   
   const attemptRequest = async () => {
     try {
-      const res = await fetch(`${baseUrl}/chat/completions`, {
+      // 清理 baseUrl，移除末尾的斜杠
+      const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
+      // 清理 apiKey，移除前后空格
+      const cleanApiKey = apiKey.trim();
+      
+      const res = await fetch(`${cleanBaseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-          "HTTP-Referer": "http://localhost:3000",
-          "X-Title": "React Builder Demo",
+          Authorization: `Bearer ${cleanApiKey}`,
         },
         body: JSON.stringify({
           model: modelName || "gpt-4",
