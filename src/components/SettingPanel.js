@@ -153,13 +153,10 @@ export default function SettingPanel({ onConfigChange }) {
         headers["Authorization"] = `Bearer ${cleanApiKey}`;
       }
 
-      // 为OpenRouter添加必要的请求头
+      // 为OpenRouter添加可选的请求头（用于排行榜显示）
       if (cleanBaseUrl.includes('openrouter.ai')) {
-        // 正确的头部名称是"HTTP-Referer"
         headers["HTTP-Referer"] = window.location.origin;
         headers["X-Title"] = "React Builder";
-        // 添加额外的OpenRouter推荐头部
-        headers["X-Original-Domain"] = window.location.origin;
       }
 
       // OpenRouter使用不同的端点来验证API密钥
@@ -635,8 +632,7 @@ export default function SettingPanel({ onConfigChange }) {
                 <p className="font-medium text-gray-700 mb-2">配置说明：</p>
                 <ul className="space-y-1.5 text-gray-600">
                   <li>• 支持 OpenAI、OpenRouter 等兼容 OpenAI API 的服务</li>
-                  <li>• <strong>OpenRouter API Key</strong> 以 'sk-or-' 开头，请从 openrouter.ai 获取</li>
-                  <li>• <strong>注意</strong>：使用OpenRouter时，需要在其官网账户设置中添加您当前网站的域名</li>
+                  <li>• <strong>OpenRouter API Key</strong> 以 'sk-or-' 开头，请从 <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 underline">openrouter.ai/keys</a> 获取</li>
                   <li>• API Key 仅存储在您的浏览器本地，不会上传到服务器</li>
                   <li>• 建议先点击"测试 API 连接"验证配置是否正确</li>
                   <li>• 配置保存后即可开始使用 AI 生成功能</li>

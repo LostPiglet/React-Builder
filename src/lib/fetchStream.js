@@ -64,13 +64,10 @@ export async function fetchStream({
         headers["Authorization"] = `Bearer ${cleanApiKey}`;
       }
 
-      // 为OpenRouter添加必要的请求头
+      // 为OpenRouter添加可选的请求头（用于排行榜显示）
       if (cleanBaseUrl.includes('openrouter.ai')) {
-        // 正确的头部名称是"HTTP-Referer"
         headers["HTTP-Referer"] = window.location.origin;
         headers["X-Title"] = "React Builder";
-        // 添加额外的OpenRouter推荐头部
-        headers["X-Original-Domain"] = window.location.origin;
       }
 
       // 准备请求体
@@ -135,8 +132,7 @@ export async function fetchStream({
             errorMessage = "❌ OpenRouter API 密钥无效。请确保：\n" +
                           "• API Key 以 'sk-or-' 开头\n" +
                           "• 在 OpenRouter 官网验证密钥是否有效\n" +
-                          "• 检查是否有足够的余额或配额\n" +
-                          "• 确认您已经在 OpenRouter 账户设置中添加了本站域名";
+                          "• 检查是否有足够的余额或配额";
                           
             // 如果错误详情中包含特定信息，提供更精确的错误提示
             if (errorDetails.includes("No auth credentials found")) {
