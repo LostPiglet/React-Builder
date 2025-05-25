@@ -147,7 +147,7 @@ export default function SettingPanel({ onConfigChange }) {
 
       // 为OpenRouter添加必要的请求头
       if (cleanBaseUrl.includes('openrouter.ai')) {
-        headers["HTTP-Referer"] = window.location.origin;
+        headers["HTTP-Referer"] = window.location.href;
         headers["X-Title"] = "React Builder";
       }
 

@@ -50,6 +50,22 @@ export async function fetchStream({
       // 清理 apiKey，移除前后空格
       const cleanApiKey = apiKey.trim();
       
+      // 验证API密钥格式
+      if (!cleanApiKey) {
+        throw new Error("❌ API Key 不能为空");
+      }
+      
+      if (cleanBaseUrl.includes('openrouter.ai') && !cleanApiKey.startsWith('sk-or-')) {
+        throw new Error("❌ OpenRouter API Key 必须以 'sk-or-' 开头");
+      }
+      
+      // 调试信息
+      console.log('🔍 API请求调试信息:');
+      console.log('- Base URL:', cleanBaseUrl);
+      console.log('- API Key开头:', cleanApiKey.substring(0, 15) + '***');
+      console.log('- API Key长度:', cleanApiKey.length);
+      console.log('- 模型名称:', modelName);
+      
       // 构建请求头
       const headers = {
         "Content-Type": "application/json",
@@ -58,8 +74,16 @@ export async function fetchStream({
 
       // 为OpenRouter添加必要的请求头
       if (cleanBaseUrl.includes('openrouter.ai')) {
-        headers["HTTP-Referer"] = window.location.origin;
+        // 根据OpenRouter官方文档，这些头部是可选的但推荐的
+        headers["HTTP-Referer"] = window.location.href;
         headers["X-Title"] = "React Builder";
+        
+        console.log('🔍 OpenRouter请求头:', {
+          'Authorization': 'Bearer ' + cleanApiKey.substring(0, 15) + '***',
+          'HTTP-Referer': headers["HTTP-Referer"],
+          'X-Title': headers["X-Title"],
+          'Content-Type': headers["Content-Type"]
+        });
       }
 
       const res = await fetch(`${cleanBaseUrl}/chat/completions`, {
