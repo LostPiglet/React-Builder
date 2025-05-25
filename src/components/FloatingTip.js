@@ -23,7 +23,7 @@ export default function FloatingTip() {
 
   // 复制API密钥
   const copyApiKey = async () => {
-    const apiKey = "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";
+    const apiKey = "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";
     try {
       await navigator.clipboard.writeText(apiKey);
       setIsCopied(true);
@@ -94,7 +94,7 @@ export default function FloatingTip() {
                 </button>
               </div>
               <div className="bg-gray-50/80 rounded p-2 text-xs font-mono break-all border border-gray-200/50">
-                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
+                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
               </div>
             </div>
             
