@@ -374,7 +374,7 @@ export default function Home() {
         <footer className="relative mt-20 py-8 text-center text-gray-500 text-sm border-t border-gray-200/50">
           <div className="container-fluid">
             <p>
-              Powered by AI • Built with React & Next.js
+              Powered by AI • Built with ❤️ using React & Next.js
             </p>
           </div>
         </footer>

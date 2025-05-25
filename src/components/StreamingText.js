@@ -60,7 +60,7 @@ export default function StreamingText({
         clearInterval(intervalRef.current);
       }
     };
-  }, [text, speed, displayedText]);
+  }, [text, speed]);
 
   // 如果标记为完成但还没显示完，立即显示全部
   useEffect(() => {

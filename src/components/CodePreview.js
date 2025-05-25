@@ -447,7 +447,7 @@ export default function CodePreview({ code }) {
                   ) : (
                     <div className="animate-fade-in-scale flex items-center justify-center">
                       <div className="w-full flex justify-center">
-                        <LivePreview />
+                  <LivePreview />
                       </div>
                     </div>
                   )}

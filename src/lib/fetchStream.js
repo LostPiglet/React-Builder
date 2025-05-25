@@ -44,109 +44,27 @@ export async function fetchStream({
   let retryCount = 0;
   
   const attemptRequest = async () => {
-    try {
-      // 清理 baseUrl，移除末尾的斜杠
-      const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
-      // 清理 apiKey，移除前后空格
-      const cleanApiKey = apiKey.trim();
-      
-      // 构建请求头
-      const headers = {
+  try {
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
         "Content-Type": "application/json",
-      };
-      
-      // 根据不同API提供商设置不同的认证头
-      if (cleanBaseUrl.includes('openrouter.ai')) {
-        // OpenRouter认证头格式
-        headers["Authorization"] = `Bearer ${cleanApiKey}`;
-      } else {
-        // 标准Bearer认证头
-        headers["Authorization"] = `Bearer ${cleanApiKey}`;
-      }
-
-      // 为OpenRouter添加可选的请求头（用于排行榜显示）
-      if (cleanBaseUrl.includes('openrouter.ai')) {
-        headers["HTTP-Referer"] = window.location.origin;
-        headers["X-Title"] = "React Builder";
-      }
-
-      // 准备请求体
-      const requestBody = {
-        model: modelName || "gpt-4",
+        Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": "http://localhost:3000",
+        "X-Title": "React Builder Demo",
+      },
+      body: JSON.stringify({
+          model: modelName || "gpt-4",
         messages: [{ role: "user", content: prompt }],
         stream: true,
-        temperature: 0.7,
-        max_tokens: 2000,
-      };
-      
-      // 如果是OpenRouter，添加额外的参数
-      if (cleanBaseUrl.includes('openrouter.ai')) {
-        requestBody.route = "fallback"; // 使用fallback路由确保高可用性
-        requestBody.transforms = ["middle-out"]; // 更好的流式处理支持
-      }
-      
-      console.log("发送请求到:", `${cleanBaseUrl}/chat/completions`);
-      console.log("请求头:", JSON.stringify(headers));
-      console.log("API Key (前5位):", cleanApiKey.substring(0, 5) + "...");
-      
-      const res = await fetch(`${cleanBaseUrl}/chat/completions`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(requestBody),
-      });
+          temperature: 0.7,
+          max_tokens: 2000,
+      }),
+    });
 
       // 检查响应状态
       if (!res.ok) {
-        // 尝试获取错误详情
-        let errorDetails = '';
-        let errorJson = null;
-        try {
-          const errorText = await res.text();
-          try {
-            errorJson = JSON.parse(errorText);
-            errorDetails = errorJson.error?.message || errorText;
-          } catch (parseError) {
-            // 如果不是JSON，使用原始文本
-            errorDetails = errorText;
-          }
-        } catch (e) {
-          errorDetails = `无法获取错误详情: ${e.message}`;
-        }
-        
-        console.error(`API请求失败: ${res.status} ${res.statusText}`, errorDetails);
-        
-        // 记录更多调试信息
-        console.log("完整请求信息:", {
-          url: `${cleanBaseUrl}/chat/completions`,
-          headers: headers,
-          status: res.status,
-          statusText: res.statusText,
-          errorDetails: errorDetails
-        });
-        
-        let errorMessage = getUserFriendlyErrorMessage(res.status);
-        
-        // 为401错误添加更具体的提示
-        if (res.status === 401) {
-          if (cleanBaseUrl.includes('openrouter.ai')) {
-            errorMessage = "❌ OpenRouter API 密钥无效。请确保：\n" +
-                          "• API Key 以 'sk-or-' 开头\n" +
-                          "• 在 OpenRouter 官网验证密钥是否有效\n" +
-                          "• 检查是否有足够的余额或配额";
-                          
-            // 如果错误详情中包含特定信息，提供更精确的错误提示
-            if (errorDetails.includes("No auth credentials found")) {
-              errorMessage = "❌ OpenRouter 无法识别您的认证凭据。请确保：\n" +
-                            "• API Key 格式正确，以 'sk-or-' 开头\n" +
-                            "• 复制粘贴时没有多余的空格\n" +
-                            "• 在OpenRouter网站验证API Key是否有效";
-            } else if (errorDetails.includes("invalid")) {
-              errorMessage = "❌ OpenRouter API 密钥无效。请从OpenRouter网站重新获取有效的API Key";
-            }
-          } else {
-            errorMessage = "❌ API 密钥无效，请检查您的 API Key 是否正确";
-          }
-        }
+        const errorMessage = getUserFriendlyErrorMessage(res.status);
         
         // 对于 429 错误，如果还有重试次数，则重试
         if (res.status === 429 && retryCount < RETRY_CONFIG.maxRetries) {
@@ -169,14 +87,14 @@ export async function fetchStream({
         throw new Error("❌ 响应体为空，请检查 API 配置");
       }
 
-      const reader = res.body.getReader();
+    const reader = res.body.getReader();
       const decoder = new TextDecoder("utf-8");
       let buffer = "";
       
       try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
           
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
@@ -187,14 +105,14 @@ export async function fetchStream({
             if (!trimmedLine.startsWith("data:")) continue;
             
             const data = trimmedLine.replace(/^data:\s*/, "");
-            if (data === "[DONE]") {
-              onDone?.();
-              return;
-            }
+        if (data === "[DONE]") {
+          onDone?.();
+          return;
+        }
             
-            try {
-              const json = JSON.parse(data);
-              const chunk = json.choices?.[0]?.delta?.content;
+        try {
+          const json = JSON.parse(data);
+          const chunk = json.choices?.[0]?.delta?.content;
               if (chunk) {
                 onMessage?.(chunk);
               }
@@ -207,8 +125,8 @@ export async function fetchStream({
               // 忽略 JSON 解析错误，继续处理下一行
               console.warn('JSON 解析错误:', parseError);
             }
-          }
-        }
+      }
+    }
       } finally {
         reader.releaseLock();
       }
@@ -230,7 +148,7 @@ export async function fetchStream({
         await delay(delayTime);
         retryCount++;
         return attemptRequest();
-      }
+  }
       
       // 如果是我们自定义的错误消息，直接使用
       if (error.message.startsWith('❌') || error.message.startsWith('⏳')) {
